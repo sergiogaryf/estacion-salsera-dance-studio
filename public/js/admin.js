@@ -3,14 +3,14 @@
    ============================================ */
 
 // ---- AUTH CHECK ----
-auth.onAuthStateChanged(async user => {
-  if (!user) {
-    window.location.href = 'login.html';
-    return;
-  }
+(async function () {
   try {
-    const userData = await FirestoreService.getUser(user.uid);
-    if (!userData || (userData.role !== 'admin' && userData.rol !== 'admin')) {
+    if (!ApiService.isLoggedIn()) {
+      window.location.href = 'login.html';
+      return;
+    }
+    const userData = await ApiService.getCurrentUser();
+    if (!userData || (userData.role !== 'admin')) {
       window.location.href = 'app.html';
       return;
     }
@@ -21,7 +21,7 @@ auth.onAuthStateChanged(async user => {
     console.error('Error verificando admin:', e);
     window.location.href = 'login.html';
   }
-});
+})();
 
 // ---- INIT ----
 function initAdmin() {
@@ -90,7 +90,7 @@ function closeSidebar() {
 // ---- LOGOUT ----
 function setupLogout() {
   document.getElementById('btnLogout').addEventListener('click', () => {
-    auth.signOut().then(() => window.location.href = 'login.html');
+    ApiService.logout();
   });
 }
 
@@ -266,6 +266,11 @@ function openAlumnoModal(data = null) {
   document.getElementById('alumnoTelefono').value = data ? data.telefono || '' : '';
   document.getElementById('alumnoClasesContratadas').value = data ? data.clasesContratadas || 0 : 0;
   document.getElementById('alumnoActivo').checked = data ? data.activo !== false : true;
+
+  // Show/hide password field
+  const pwGroup = document.getElementById('passwordGroup');
+  if (pwGroup) pwGroup.style.display = data ? 'none' : 'block';
+
   openModal('modalAlumno');
 }
 
@@ -292,17 +297,23 @@ async function handleAlumnoSubmit(e) {
     role: 'alumno'
   };
 
+  // Add password for new alumnos
+  const pwInput = document.getElementById('alumnoPassword');
+  if (!id && pwInput && pwInput.value) {
+    data.password = pwInput.value;
+  }
+
   try {
     if (id) {
       await FirestoreService.updateUser(id, data);
       showToast('Alumno actualizado correctamente', 'success');
     } else {
-      // For new alumno, we need a UID. Since admin creates accounts via Firebase Console,
-      // we create the Firestore doc using email as a temporary approach
-      // In practice, the admin creates the Auth account first, then adds info here
-      showToast('Crea primero la cuenta en Firebase Console, luego edita aqui', 'info');
-      closeModal('modalAlumno');
-      return;
+      if (!data.password) {
+        showToast('Debes asignar una contrasena al nuevo alumno', 'error');
+        return;
+      }
+      await FirestoreService.createUser(null, data);
+      showToast('Alumno creado correctamente', 'success');
     }
     closeModal('modalAlumno');
     loadAlumnos();
@@ -585,7 +596,7 @@ let pendingDeleteType = null;
 function confirmDelete(id, type, name) {
   pendingDeleteId = id;
   pendingDeleteType = type;
-  document.getElementById('confirmMessage').textContent = `¿Seguro que desea eliminar "${name}"? Esta accion no se puede deshacer.`;
+  document.getElementById('confirmMessage').textContent = `Seguro que desea eliminar "${name}"? Esta accion no se puede deshacer.`;
   openModal('modalConfirm');
 }
 

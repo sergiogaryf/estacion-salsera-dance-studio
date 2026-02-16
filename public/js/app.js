@@ -6,23 +6,23 @@ let currentUser = null;
 let userClases = [];
 
 // ---- AUTH CHECK ----
-auth.onAuthStateChanged(async user => {
-  if (!user) {
-    window.location.href = 'login.html';
-    return;
-  }
+(async function () {
   try {
-    const userData = await FirestoreService.getUser(user.uid);
+    if (!ApiService.isLoggedIn()) {
+      window.location.href = 'login.html';
+      return;
+    }
+    const userData = await ApiService.getCurrentUser();
     if (!userData) {
       window.location.href = 'login.html';
       return;
     }
     // If admin, redirect to admin panel
-    if (userData.role === 'admin' || userData.rol === 'admin') {
+    if (userData.role === 'admin') {
       window.location.href = 'admin.html';
       return;
     }
-    currentUser = { uid: user.uid, ...userData };
+    currentUser = { uid: userData.id, ...userData };
     document.getElementById('appLoading').style.display = 'none';
     document.getElementById('appContent').classList.remove('hidden');
     document.getElementById('tabBar').classList.remove('hidden');
@@ -31,7 +31,7 @@ auth.onAuthStateChanged(async user => {
     console.error('Error cargando usuario:', e);
     window.location.href = 'login.html';
   }
-});
+})();
 
 // ---- INIT ----
 function initApp() {
@@ -80,7 +80,7 @@ function loadTab(tabId) {
 // ---- LOGOUT ----
 function setupLogout() {
   document.getElementById('logoutBtn').addEventListener('click', () => {
-    auth.signOut().then(() => window.location.href = 'login.html');
+    ApiService.logout();
   });
 }
 

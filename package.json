@@ -1,0 +1,13 @@
+{
+  "name": "estacion-salsera-dance-studio",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "hash-password": "node scripts/hash-password.js"
+  },
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
