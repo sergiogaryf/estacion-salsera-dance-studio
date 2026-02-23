@@ -3,23 +3,17 @@
    Cache-first para assets, network-first para API
    ============================================ */
 
-const CACHE_NAME = 'estacion-salsera-v2';
+const CACHE_NAME = 'estacion-salsera-v3';
 const OFFLINE_URL = '/offline.html';
 
 const ASSETS_TO_CACHE = [
   '/',
   '/app.html',
   '/login.html',
-  '/evaluacion.html',
-  '/calendario.html',
   '/offline.html',
   '/css/shared.css',
   '/css/app.css',
   '/css/login.css',
-  '/css/evaluacion.css',
-  '/css/calendario.css',
-  '/js/evaluacion.js',
-  '/js/calendario.js',
   '/marzo_clases_2026.ics',
   '/img/Logo.png',
   '/img/favicon.svg',

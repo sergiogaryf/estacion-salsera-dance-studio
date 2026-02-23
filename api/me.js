@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
       clasesAsistidas: alumno.ClasesAsistidas || 0,
       activo: alumno.Activo !== false,
       cursosInscritos: alumno.CursosInscritos ? JSON.parse(alumno.CursosInscritos) : [],
+      fotoUrl: alumno.FotoUrl || null,
     });
   } catch (error) {
     console.error('Error en /api/me:', error);

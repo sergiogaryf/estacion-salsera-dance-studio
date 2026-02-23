@@ -36,6 +36,17 @@
   padding: 1.5rem;
 }
 
+/* ---- VISTAS (show/hide) ---- */
+.login-vista {
+  display: none;
+  width: 100%;
+}
+
+.login-vista.active {
+  display: block;
+  animation: cardAppear 0.6s ease-out;
+}
+
 /* ---- CARD ---- */
 .login-card {
   background: rgba(18, 18, 18, 0.88);
@@ -48,7 +59,6 @@
     0 20px 60px rgba(0, 0, 0, 0.5),
     0 0 80px rgba(212, 160, 23, 0.03),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  animation: cardAppear 0.6s ease-out;
 }
 
 .login-card:hover {
@@ -120,6 +130,48 @@
   letter-spacing: 2px;
   text-transform: uppercase;
   font-weight: 300;
+}
+
+/* ---- SELECTOR DE ROL ---- */
+.login-roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.8rem;
+  margin: 1.5rem 0;
+}
+
+.login-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem 0.8rem;
+  background: rgba(26, 26, 26, 0.6);
+  border: 1px solid var(--gris-borde);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: var(--blanco);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.login-role-card:hover {
+  border-color: rgba(212, 160, 23, 0.4);
+  background: rgba(212, 160, 23, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(212, 160, 23, 0.08);
+}
+
+.login-role-icon {
+  font-size: 2rem;
+}
+
+.login-role-text {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--blanco-suave);
 }
 
 /* ---- FORMULARIO ---- */
@@ -274,6 +326,29 @@
   transform: translateX(-4px);
 }
 
+/* ---- BACK LINK BTN ---- */
+.back-link-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 1.5rem;
+  color: var(--blanco-suave);
+  font-size: 0.85rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: color 0.3s;
+}
+
+.back-link-btn:hover {
+  color: var(--dorado);
+}
+
+.back-link-btn:hover .back-arrow {
+  transform: translateX(-4px);
+}
+
 /* ---- RESPONSIVE ---- */
 @media (max-width: 480px) {
   .login-container {
@@ -301,6 +376,21 @@
   .login-btn {
     border-radius: 12px;
   }
+
+  .login-roles {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .login-role-card {
+    flex-direction: row;
+    padding: 1rem 1.2rem;
+    gap: 1rem;
+  }
+
+  .login-role-icon {
+    font-size: 1.5rem;
+  }
 }
 
 @media (max-width: 360px) {
@@ -317,6 +407,7 @@
 @media (prefers-reduced-motion: reduce) {
   .login-card,
   .login-logo,
+  .login-vista.active,
   .error-message {
     animation: none;
   }

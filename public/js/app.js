@@ -37,6 +37,8 @@ let userClases = [];
 function initApp() {
   setupTabs();
   setupLogout();
+  setupEvaluacion();
+  setupFotoUpload();
   loadInicio();
   registerSW();
 }
@@ -71,8 +73,9 @@ function loadTab(tabId) {
   switch (tabId) {
     case 'tab-inicio': loadInicio(); break;
     case 'tab-horario': loadHorario(); break;
+    case 'tab-calendario': loadCalendario(); break;
+    case 'tab-evaluacion': loadEvaluacion(); break;
     case 'tab-companeros': loadCompaneros(); break;
-    case 'tab-eventos': loadEventosAlumno(); break;
     case 'tab-perfil': loadPerfil(); break;
   }
 }
@@ -110,6 +113,9 @@ async function loadInicio() {
 
   // Proxima clase
   await loadProximaClase();
+
+  // Eventos inline en inicio
+  loadEventosInicio();
 }
 
 async function loadProximaClase() {
@@ -178,6 +184,30 @@ async function loadProximaClase() {
   }
 }
 
+async function loadEventosInicio() {
+  const container = document.getElementById('eventosInicio');
+  if (!container) return;
+  try {
+    const eventos = await FirestoreService.getEventosActivos();
+    if (eventos.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = `
+      <div class="card-label" style="margin-top:1rem">Proximos eventos</div>
+      ${eventos.slice(0, 3).map(ev => {
+        const fecha = formatDate(ev.fecha);
+        return `<div class="glass-card" style="margin-bottom:0.6rem;padding:0.8rem 1rem">
+          <div style="font-size:0.9rem;color:var(--dorado);font-weight:600">${sanitize(ev.titulo)}</div>
+          <div style="font-size:0.75rem;color:var(--blanco-suave)">${fecha}${ev.lugar ? ' &middot; ' + sanitize(ev.lugar) : ''}</div>
+        </div>`;
+      }).join('')}
+    `;
+  } catch (e) {
+    container.innerHTML = '';
+  }
+}
+
 // ============================================
 // TAB: HORARIO
 // ============================================
@@ -235,6 +265,219 @@ async function loadHorario() {
   } catch (e) {
     console.error('Error cargando horario:', e);
     container.innerHTML = '<div class="empty-state"><p>Error al cargar horario</p></div>';
+  }
+}
+
+// ============================================
+// TAB: CALENDARIO
+// ============================================
+function loadCalendario() {
+  var grid = document.getElementById('calGridApp');
+  if (!grid || grid.children.length > 0) return; // ya renderizado
+
+  var CLASES_MARZO = [
+    { dia: 2,  color: 'bachata-int', titulo: 'Bachata Intermedio' },
+    { dia: 9,  color: 'bachata-int', titulo: 'Bachata Intermedio' },
+    { dia: 16, color: 'bachata-int', titulo: 'Bachata Intermedio' },
+    { dia: 23, color: 'bachata-int', titulo: 'Bachata Intermedio' },
+    { dia: 3,  color: 'casino-bas', titulo: 'Casino Basico' },
+    { dia: 10, color: 'casino-bas', titulo: 'Casino Basico' },
+    { dia: 17, color: 'casino-bas', titulo: 'Casino Basico' },
+    { dia: 24, color: 'casino-bas', titulo: 'Casino Basico' },
+    { dia: 4,  color: 'casino-int', titulo: 'Casino Intermedio' },
+    { dia: 11, color: 'casino-int', titulo: 'Casino Intermedio' },
+    { dia: 18, color: 'casino-int', titulo: 'Casino Intermedio' },
+    { dia: 25, color: 'casino-int', titulo: 'Casino Intermedio' },
+    { dia: 5,  color: 'mambo', titulo: 'Mambo Open' },
+    { dia: 12, color: 'mambo', titulo: 'Mambo Open' },
+    { dia: 19, color: 'mambo', titulo: 'Mambo Open' },
+    { dia: 26, color: 'mambo', titulo: 'Mambo Open' },
+    { dia: 6,  color: 'bachata-bas', titulo: 'Bachata Basico' },
+    { dia: 13, color: 'bachata-bas', titulo: 'Bachata Basico' },
+    { dia: 20, color: 'bachata-bas', titulo: 'Bachata Basico' },
+    { dia: 27, color: 'bachata-bas', titulo: 'Bachata Basico' },
+  ];
+
+  // Marzo 2026: 1 de marzo es domingo -> offset lunes-based = 6
+  var primerDiaJS = new Date(2026, 2, 1).getDay();
+  var offset = (primerDiaJS + 6) % 7;
+  var diasEnMarzo = 31;
+
+  var clasesPorDia = {};
+  CLASES_MARZO.forEach(function(clase) {
+    if (!clasesPorDia[clase.dia]) clasesPorDia[clase.dia] = [];
+    clasesPorDia[clase.dia].push(clase);
+  });
+
+  var hoy = new Date();
+  var esMarzo2026 = hoy.getFullYear() === 2026 && hoy.getMonth() === 2;
+
+  var html = '';
+  for (var v = 0; v < offset; v++) {
+    html += '<div class="cal-dia-app vacio"></div>';
+  }
+
+  for (var dia = 1; dia <= diasEnMarzo; dia++) {
+    var clases = clasesPorDia[dia] || [];
+    var tieneClase = clases.length > 0;
+    var esHoy = esMarzo2026 && hoy.getDate() === dia;
+
+    var puntosHTML = clases.map(function(c) {
+      return '<div class="cal-punto-app cal-dot-' + c.color + '"></div>';
+    }).join('');
+
+    html += '<div class="cal-dia-app' +
+      (tieneClase ? ' tiene-clase' : '') +
+      (esHoy ? ' hoy' : '') +
+      '">' +
+      '<span class="cal-num-app">' + dia + '</span>' +
+      (puntosHTML ? '<div class="cal-puntos-app">' + puntosHTML + '</div>' : '') +
+      '</div>';
+  }
+
+  grid.innerHTML = html;
+}
+
+// ============================================
+// TAB: EVALUACION
+// ============================================
+let evalAppInitialized = false;
+
+function setupEvaluacion() {
+  // Sliders
+  ['evalAppDisfrute', 'evalAppComprension', 'evalAppComodidad', 'evalAppConfianza'].forEach(id => {
+    const input = document.getElementById(id);
+    const display = document.getElementById(id + 'Val');
+    if (input && display) {
+      input.addEventListener('input', () => { display.textContent = input.value; });
+    }
+  });
+
+  // Clase buttons
+  document.querySelectorAll('.eval-app-clase-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.eval-app-clase-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
+  // Binaria
+  document.getElementById('evalAppBaileSi').addEventListener('click', () => {
+    document.getElementById('evalAppBaileSi').classList.add('selected-si');
+    document.getElementById('evalAppBaileNo').classList.remove('selected-no');
+  });
+  document.getElementById('evalAppBaileNo').addEventListener('click', () => {
+    document.getElementById('evalAppBaileNo').classList.add('selected-no');
+    document.getElementById('evalAppBaileSi').classList.remove('selected-si');
+  });
+
+  // Submit
+  document.getElementById('btnEnviarEvalApp').addEventListener('click', enviarEvaluacionAlumno);
+}
+
+function loadEvaluacion() {
+  if (evalAppInitialized) return;
+  evalAppInitialized = true;
+
+  // Poblar select de cursos desde cursosInscritos
+  const select = document.getElementById('evalAppCurso');
+  const cursosIds = currentUser.cursosInscritos || [];
+
+  if (userClases.length > 0) {
+    poblarCursos(select, userClases);
+  } else if (cursosIds.length > 0) {
+    FirestoreService.getClasesActivas().then(all => {
+      userClases = all.filter(c => cursosIds.includes(c.id));
+      poblarCursos(select, userClases);
+    });
+  }
+}
+
+function poblarCursos(select, clases) {
+  select.innerHTML = '<option value="">Selecciona tu curso</option>';
+  clases.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.nombre;
+    opt.textContent = c.nombre + ' - ' + c.dia;
+    select.appendChild(opt);
+  });
+  if (clases.length === 1) {
+    select.value = clases[0].nombre;
+  }
+}
+
+async function enviarEvaluacionAlumno() {
+  const errorEl = document.getElementById('evalAppError');
+  const exitoEl = document.getElementById('evalAppExito');
+  errorEl.classList.add('hidden');
+  exitoEl.classList.add('hidden');
+
+  const curso = document.getElementById('evalAppCurso').value;
+  if (!curso) {
+    errorEl.textContent = 'Selecciona tu curso.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const claseBtn = document.querySelector('.eval-app-clase-btn.selected');
+  if (!claseBtn) {
+    errorEl.textContent = 'Selecciona el numero de clase.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const tieneSi = document.getElementById('evalAppBaileSi').classList.contains('selected-si');
+  const tieneNo = document.getElementById('evalAppBaileNo').classList.contains('selected-no');
+  if (!tieneSi && !tieneNo) {
+    errorEl.textContent = 'Indica si bailaste con alguien nuevo.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const payload = {
+    nombreAlumno: currentUser.nombre,
+    curso: curso,
+    numeroClase: parseInt(claseBtn.dataset.clase),
+    disfrute: parseInt(document.getElementById('evalAppDisfrute').value),
+    comprension: parseInt(document.getElementById('evalAppComprension').value),
+    comodidadPareja: parseInt(document.getElementById('evalAppComodidad').value),
+    confianza: parseInt(document.getElementById('evalAppConfianza').value),
+    baileNuevo: tieneSi,
+    comentario: document.getElementById('evalAppComentario').value.trim(),
+  };
+
+  const btn = document.getElementById('btnEnviarEvalApp');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const res = await ApiService._fetch('/api/evaluaciones', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    exitoEl.textContent = 'Evaluacion enviada. Gracias por tu feedback!';
+    exitoEl.classList.remove('hidden');
+
+    // Reset form
+    document.querySelectorAll('.eval-app-clase-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('evalAppBaileSi').classList.remove('selected-si');
+    document.getElementById('evalAppBaileNo').classList.remove('selected-no');
+    ['evalAppDisfrute', 'evalAppComprension', 'evalAppComodidad', 'evalAppConfianza'].forEach(id => {
+      document.getElementById(id).value = 5;
+      document.getElementById(id + 'Val').textContent = '5';
+    });
+    document.getElementById('evalAppComentario').value = '';
+  } catch (err) {
+    if (err.message && err.message.includes('409')) {
+      errorEl.textContent = 'Ya enviaste tu evaluacion de hoy. Vuelve manana.';
+    } else {
+      errorEl.textContent = err.message || 'Error al enviar. Intenta de nuevo.';
+    }
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar mi evaluacion';
   }
 }
 
@@ -299,52 +542,24 @@ async function loadCompaneros() {
 }
 
 // ============================================
-// TAB: EVENTOS
-// ============================================
-async function loadEventosAlumno() {
-  const container = document.getElementById('eventosList');
-  try {
-    const eventos = await FirestoreService.getEventosActivos();
-    if (eventos.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <span class="empty-icon">&#9733;</span>
-          <p>No hay eventos proximos</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = eventos.map(ev => {
-      const fecha = formatDate(ev.fecha);
-      return `
-        <div class="evento-card">
-          ${ev.imagenURL
-            ? `<img src="${ev.imagenURL}" alt="${sanitize(ev.titulo)}" class="evento-card-img" onerror="this.outerHTML='<div class=\\'evento-card-img-placeholder\\'>&#9733;</div>'">`
-            : '<div class="evento-card-img-placeholder">&#9733;</div>'
-          }
-          <div class="evento-card-body">
-            <div class="evento-card-title">${sanitize(ev.titulo)}</div>
-            <div class="evento-card-date">${fecha}</div>
-            ${ev.lugar ? `<div class="evento-card-place">${sanitize(ev.lugar)}</div>` : ''}
-            ${ev.descripcion ? `<div class="evento-card-desc">${sanitize(ev.descripcion)}</div>` : ''}
-          </div>
-        </div>
-      `;
-    }).join('');
-  } catch (e) {
-    console.error('Error cargando eventos:', e);
-    container.innerHTML = '<div class="empty-state"><p>Error al cargar eventos</p></div>';
-  }
-}
-
-// ============================================
 // TAB: PERFIL
 // ============================================
 function loadPerfil() {
   if (!currentUser) return;
 
-  document.getElementById('perfilAvatar').textContent = getInitials(currentUser.nombre);
+  const fotoUrl = currentUser.fotoUrl;
+  const avatarEl = document.getElementById('perfilAvatar');
+  const fotoEl = document.getElementById('perfilFotoImg');
+  if (fotoUrl && fotoUrl.startsWith('data:image/')) {
+    fotoEl.src = fotoUrl;
+    fotoEl.style.display = '';
+    avatarEl.style.display = 'none';
+  } else {
+    fotoEl.style.display = 'none';
+    avatarEl.style.display = '';
+    avatarEl.textContent = getInitials(currentUser.nombre);
+  }
+
   document.getElementById('perfilName').textContent = currentUser.nombre || '-';
   document.getElementById('perfilRole').textContent = currentUser.role || 'alumno';
   document.getElementById('perfilEmail').textContent = currentUser.email || '-';
@@ -359,6 +574,70 @@ function loadPerfil() {
   document.getElementById('statContratadas').textContent = contratadas;
   document.getElementById('statAsistidas').textContent = asistidas;
   document.getElementById('statPorcentaje').textContent = pct + '%';
+}
+
+// ============================================
+// FOTO DE PERFIL (ALUMNO)
+// ============================================
+function setupFotoUpload() {
+  const input = document.getElementById('fotoInput');
+  if (!input) return;
+  input.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const base64 = await comprimirFoto(file);
+      const result = await ApiService.uploadFoto(currentUser.id, base64);
+      currentUser.fotoUrl = result.fotoUrl;
+      document.getElementById('perfilFotoImg').src = base64;
+      document.getElementById('perfilFotoImg').style.display = '';
+      document.getElementById('perfilAvatar').style.display = 'none';
+      showToast('Foto actualizada', 'success');
+    } catch (err) {
+      showToast('Error al subir la foto: ' + (err.message || 'Intenta de nuevo'), 'error');
+    }
+    input.value = '';
+  });
+}
+
+function comprimirFoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 250;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const minDim = Math.min(img.width, img.height);
+        const sx = (img.width - minDim) / 2;
+        const sy = (img.height - minDim) / 2;
+        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+        const webp = canvas.toDataURL('image/webp', 0.82);
+        resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // ============================================

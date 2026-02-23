@@ -100,6 +100,13 @@ const ApiService = {
     });
   },
 
+  async uploadFoto(userId, fotoBase64) {
+    return this._fetch('/api/upload-foto', {
+      method: 'POST',
+      body: JSON.stringify({ userId, fotoBase64 }),
+    });
+  },
+
   async deleteUser(id) {
     return this._fetch(`/api/alumnos?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
